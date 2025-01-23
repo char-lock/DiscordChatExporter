@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using AsyncKeyedLock;
+using DiscordChatExporter.Core.Database;
 using DiscordChatExporter.Core.Utils;
 using DiscordChatExporter.Core.Utils.Extensions;
 
@@ -21,6 +22,40 @@ internal partial class ExportAssetDownloader(string workingDirPath, bool reuse)
     // File paths of the previously downloaded assets
     private readonly Dictionary<string, string> _previousPathsByUrl = new(StringComparer.Ordinal);
 
+    // Repository for asset hashes
+    private readonly AssetRepository _assetRepository = new();
+
+    public string HashFile(Stream fileStream)
+    {
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(fileStream);
+        return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+    }
+
+    public bool TryGetHashByUrl(string url, out string fileHash)
+    {
+        bool isKnownUrl = _assetRepository.IsKnownUrl(url);
+        if (isKnownUrl)
+        {
+            fileHash = _assetRepository.GetHashByUrl(url);
+            return fileHash != null;
+        }
+        fileHash = "";
+        return false;
+    }
+
+    public bool GetFilePathByHash(string fileHash, out string filePath)
+    {
+        bool isKnownHash = _assetRepository.IsKnownHash(fileHash);
+        if (isKnownHash)
+        {
+            filePath = _assetRepository.GetPathByHash(fileHash);
+            return filePath != null;
+        }
+        filePath = "";
+        return false;
+    }
+
     public async ValueTask<string> DownloadAsync(
         string url,
         CancellationToken cancellationToken = default,
@@ -32,8 +67,16 @@ internal partial class ExportAssetDownloader(string workingDirPath, bool reuse)
 
         using var _ = await Locker.LockAsync(filePath, cancellationToken);
 
+        if (TryGetHashByUrl(url, out var urlFileHash))
+        {
+            if (GetFilePathByHash(urlFileHash, out var urlFilePath))
+                return urlFilePath;
+        }
+
         if (_previousPathsByUrl.TryGetValue(url, out var cachedFilePath))
+        {
             return cachedFilePath;
+        }
 
         // Reuse existing files if we're allowed to
         if (reuse && File.Exists(filePath))
@@ -46,15 +89,26 @@ internal partial class ExportAssetDownloader(string workingDirPath, bool reuse)
             {
                 // Download the file
                 using var response = await Http.Client.GetAsync(url, innerCancellationToken);
-                await using (var output = File.Create(filePath))
-                    await response.Content.CopyToAsync(output, innerCancellationToken);
-
-                // Try to set the file date according to the message timestamp
-                if (timestamp is not null)
+                string urlHash = HashFile(response.Content.ReadAsStream(innerCancellationToken));
+                bool isKnownHash = _assetRepository.IsKnownHash(urlHash);
+                _assetRepository.AddUrlHash(url, urlHash);
+                if (!isKnownHash)
                 {
-                    File.SetCreationTimeUtc(filePath, timestamp.Value.UtcDateTime);
-                    File.SetLastWriteTimeUtc(filePath, timestamp.Value.UtcDateTime);
-                    File.SetLastAccessTimeUtc(filePath, timestamp.Value.UtcDateTime);
+                    await using (var output = File.Create(filePath))
+                        await response.Content.CopyToAsync(output, innerCancellationToken);
+                    // Try to set the file date according to the message timestamp
+                    if (timestamp is not null)
+                    {
+                        File.SetCreationTimeUtc(filePath, timestamp.Value.UtcDateTime);
+                        File.SetLastWriteTimeUtc(filePath, timestamp.Value.UtcDateTime);
+                        File.SetLastAccessTimeUtc(filePath, timestamp.Value.UtcDateTime);
+                    }
+                    _assetRepository.AddAssetHash(filePath, urlHash);
+                }
+                else
+                {
+                    filePath = _assetRepository.GetPathByHash(urlHash);
+                    _previousPathsByUrl[url] = filePath;
                 }
             },
             cancellationToken
