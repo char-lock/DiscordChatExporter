@@ -136,6 +136,12 @@ public abstract class ExportCommandBase : DiscordCommandBase
     )]
     public bool IsUkraineSupportMessageDisabled { get; init; } = false;
 
+    [CommandOption("hash-check", Description = "Should skip hash check")]
+    public bool IsAssetHashDatabaseEnabled { get; init; } = true;
+
+    [CommandOption("asset-db", Description = "Path to the asset.db for hash check")]
+    public string AssetHashDatabasePath { get; init; } = "asset.db";
+
     private ChannelExporter? _channelExporter;
     protected ChannelExporter Exporter => _channelExporter ??= new ChannelExporter(Discord);
 
@@ -225,7 +231,9 @@ public abstract class ExportCommandBase : DiscordCommandBase
                                         ShouldDownloadAssets,
                                         ShouldReuseAssets,
                                         Locale,
-                                        IsUtcNormalizationEnabled
+                                        IsUtcNormalizationEnabled,
+                                        IsAssetHashDatabaseEnabled,
+                                        AssetHashDatabasePath
                                     );
 
                                     await Exporter.ExportChannelAsync(

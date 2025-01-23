@@ -276,7 +276,9 @@ public partial class DashboardViewModel : ViewModelBase
                             dialog.ShouldDownloadAssets,
                             dialog.ShouldReuseAssets,
                             _settingsService.Locale,
-                            _settingsService.IsUtcNormalizationEnabled
+                            _settingsService.IsUtcNormalizationEnabled,
+                            _settingsService.IsAssetHashDatabaseEnabled,
+                            _settingsService.AssetHashDatabasePath ?? "assets.db"
                         );
 
                         await exporter.ExportChannelAsync(request, progress, cancellationToken);

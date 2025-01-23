@@ -112,6 +112,24 @@
                                 Value="{Binding ParallelLimit}" />
                         </StackPanel>
                     </DockPanel>
+
+                    <!-- Enable Asset hashing -->
+                    <DockPanel
+                        Margin="16,8"
+                        LastChildFill="False"
+                        ToolTip.Tip="How to manage exported assets">
+                        <TextBlock DockPanel.Dock="Left" Text="Cache Asset Hashes and Locations?" />
+                        <ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding IsAssetHashDatabaseEnabled}" />
+                    </DockPanel>
+
+                    <!-- Asset cache location -->
+                    <DockPanel
+                        Margin="16,8"
+                        LastChildFill="False"
+                        ToolTip.Tip="Where to store exported assets">
+                        <TextBlock DockPanel.Dock="Left" Text="Asset Cache Location" />
+                        <TextBox DockPanel.Dock="Right" Text="{Binding AssetHashDatabasePath}" />
+                    </DockPanel>
                 </StackPanel>
             </ScrollViewer>
         </Border>

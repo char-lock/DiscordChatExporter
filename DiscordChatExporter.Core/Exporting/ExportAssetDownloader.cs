@@ -15,7 +15,12 @@ using DiscordChatExporter.Core.Utils.Extensions;
 
 namespace DiscordChatExporter.Core.Exporting;
 
-internal partial class ExportAssetDownloader(string workingDirPath, bool reuse)
+internal partial class ExportAssetDownloader(
+    string workingDirPath,
+    bool reuse,
+    bool skipHashCheck,
+    string assetDatabasePath
+)
 {
     private static readonly AsyncKeyedLocker<string> Locker = new();
 
@@ -23,16 +28,16 @@ internal partial class ExportAssetDownloader(string workingDirPath, bool reuse)
     private readonly Dictionary<string, string> _previousPathsByUrl = new(StringComparer.Ordinal);
 
     // Repository for asset hashes
-    private readonly AssetRepository _assetRepository = new();
+    private readonly AssetRepository _assetRepository = new(assetDatabasePath);
 
-    public string HashFile(Stream fileStream)
+    private string HashFile(Stream fileStream)
     {
         using var sha256 = SHA256.Create();
         var hash = sha256.ComputeHash(fileStream);
         return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
     }
 
-    public bool TryGetHashByUrl(string url, out string fileHash)
+    private bool TryGetHashByUrl(string url, out string fileHash)
     {
         bool isKnownUrl = _assetRepository.IsKnownUrl(url);
         if (isKnownUrl)
@@ -44,7 +49,7 @@ internal partial class ExportAssetDownloader(string workingDirPath, bool reuse)
         return false;
     }
 
-    public bool GetFilePathByHash(string fileHash, out string filePath)
+    private bool GetFilePathByHash(string fileHash, out string filePath)
     {
         bool isKnownHash = _assetRepository.IsKnownHash(fileHash);
         if (isKnownHash)
@@ -67,10 +72,13 @@ internal partial class ExportAssetDownloader(string workingDirPath, bool reuse)
 
         using var _ = await Locker.LockAsync(filePath, cancellationToken);
 
-        if (TryGetHashByUrl(url, out var urlFileHash))
+        if (!skipHashCheck)
         {
-            if (GetFilePathByHash(urlFileHash, out var urlFilePath))
-                return urlFilePath;
+            if (TryGetHashByUrl(url, out var urlFileHash))
+            {
+                if (GetFilePathByHash(urlFileHash, out var urlFilePath))
+                    return urlFilePath;
+            }
         }
 
         if (_previousPathsByUrl.TryGetValue(url, out var cachedFilePath))
@@ -90,9 +98,19 @@ internal partial class ExportAssetDownloader(string workingDirPath, bool reuse)
                 // Download the file
                 using var response = await Http.Client.GetAsync(url, innerCancellationToken);
                 string urlHash = HashFile(response.Content.ReadAsStream(innerCancellationToken));
-                bool isKnownHash = _assetRepository.IsKnownHash(urlHash);
-                _assetRepository.AddUrlHash(url, urlHash);
-                if (!isKnownHash)
+                bool isKnownHash = false;
+                if (!skipHashCheck)
+                {
+                    isKnownHash = _assetRepository.IsKnownHash(urlHash);
+                    _assetRepository.AddUrlHash(url, urlHash);
+                }
+                if (!skipHashCheck && isKnownHash)
+                {
+                    filePath = _assetRepository.GetPathByHash(urlHash);
+                    if (File.Exists(filePath))
+                        _previousPathsByUrl[url] = filePath;
+                }
+                else
                 {
                     await using (var output = File.Create(filePath))
                         await response.Content.CopyToAsync(output, innerCancellationToken);
@@ -104,11 +122,6 @@ internal partial class ExportAssetDownloader(string workingDirPath, bool reuse)
                         File.SetLastAccessTimeUtc(filePath, timestamp.Value.UtcDateTime);
                     }
                     _assetRepository.AddAssetHash(filePath, urlHash);
-                }
-                else
-                {
-                    filePath = _assetRepository.GetPathByHash(urlHash);
-                    _previousPathsByUrl[url] = filePath;
                 }
             },
             cancellationToken

@@ -7,9 +7,9 @@ public class AssetRepository
 {
     private readonly DatabaseClient _databaseClient;
 
-    public AssetRepository()
+    public AssetRepository(string assetDatabasePath)
     {
-        _databaseClient = new DatabaseClient();
+        _databaseClient = new DatabaseClient(assetDatabasePath);
     }
 
     public List<string> FetchUrlsByHash(string hash)

@@ -108,6 +108,19 @@ public class SettingsViewModel : DialogViewModelBase
         set => _settingsService.ParallelLimit = Math.Clamp(value, 1, 10);
     }
 
+    public bool IsAssetHashDatabaseEnabled
+    {
+        get => _settingsService.IsAssetHashDatabaseEnabled;
+        set => _settingsService.IsAssetHashDatabaseEnabled = value;
+    }
+
+    public string AssetHashDatabasePath
+    {
+        // This will default to assets.db if the path is empty or whitespace
+        get => _settingsService.AssetHashDatabasePath ?? "assets.db";
+        set => _settingsService.AssetHashDatabasePath = value.NullIfWhiteSpace();
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)

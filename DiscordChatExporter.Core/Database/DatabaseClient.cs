@@ -7,13 +7,13 @@ public class DatabaseClient : IDisposable
 {
     private readonly SQLiteConnection _connection;
 
-    public DatabaseClient()
+    public DatabaseClient(string assetDatabasePath)
     {
-        if (!System.IO.File.Exists("assets.db"))
+        if (!System.IO.File.Exists(assetDatabasePath))
         {
-            SQLiteConnection.CreateFile("assets.db");
+            SQLiteConnection.CreateFile(assetDatabasePath);
         }
-        _connection = new SQLiteConnection("Data Source=assets.db");
+        _connection = new SQLiteConnection("Data Source=" + assetDatabasePath);
         _connection.Open();
         EnsureTables();
     }

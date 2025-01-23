@@ -40,6 +40,10 @@ public partial class ExportRequest
 
     public bool ShouldReuseAssets { get; }
 
+    public bool ShouldSkipHashCheck { get; }
+
+    public string AssetDatabasePath { get; }
+
     public string? Locale { get; }
 
     public CultureInfo? CultureInfo { get; }
@@ -60,7 +64,9 @@ public partial class ExportRequest
         bool shouldDownloadAssets,
         bool shouldReuseAssets,
         string? locale,
-        bool isUtcNormalizationEnabled
+        bool isUtcNormalizationEnabled,
+        bool isAssetHashDatabaseEnabled,
+        string assetHashDatabasePath
     )
     {
         Guild = guild;
@@ -75,6 +81,8 @@ public partial class ExportRequest
         ShouldReuseAssets = shouldReuseAssets;
         Locale = locale;
         IsUtcNormalizationEnabled = isUtcNormalizationEnabled;
+        ShouldSkipHashCheck = !isAssetHashDatabaseEnabled;
+        AssetDatabasePath = assetHashDatabasePath;
 
         OutputFilePath = GetOutputBaseFilePath(Guild, Channel, outputPath, Format, After, Before);
 

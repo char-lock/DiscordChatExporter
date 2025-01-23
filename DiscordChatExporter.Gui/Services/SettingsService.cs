@@ -130,6 +130,20 @@ public partial class SettingsService()
         set => SetProperty(ref _lastAssetsDirPath, value);
     }
 
+    private string? _assetHashDatabasePath;
+    public string? AssetHashDatabasePath
+    {
+        get => _assetHashDatabasePath ?? Path.Combine(AppContext.BaseDirectory, "assets.db");
+        set => SetProperty(ref _assetHashDatabasePath, value);
+    }
+
+    private bool _isAssetHashDatabaseEnabled;
+    public bool IsAssetHashDatabaseEnabled
+    {
+        get => _isAssetHashDatabaseEnabled;
+        set => SetProperty(ref _isAssetHashDatabaseEnabled, value);
+    }
+
     public override void Save()
     {
         // Clear the token if it's not supposed to be persisted
